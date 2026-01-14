@@ -7,12 +7,34 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Montserrat:wght@300;400&display=swap');
 
-        body { margin: 0; overflow: hidden; background-color: #0a0508; cursor: none; font-family: 'Montserrat', sans-serif; }
-        canvas { position: absolute; top: 0; left: 0; display: block; }
-        #bgCanvas { z-index: 1; }
-        #uiCanvas { z-index: 2; }
-        #cursorCanvas { z-index: 200; pointer-events: none; }
-        
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0508;
+            cursor: none;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: block;
+        }
+
+        #bgCanvas {
+            z-index: 1;
+        }
+
+        #uiCanvas {
+            z-index: 2;
+        }
+
+        #cursorCanvas {
+            z-index: 200;
+            pointer-events: none;
+        }
+
         #typewriter-container {
             position: fixed;
             top: 40%;
@@ -30,7 +52,7 @@
             color: #ff80ab;
             letter-spacing: 2px;
             text-shadow: 0 0 10px rgba(255, 128, 171, 0.5);
-            white-space: pre-wrap; 
+            white-space: pre-wrap;
             display: inline-block;
         }
 
@@ -54,11 +76,11 @@
             pointer-events: auto;
         }
 
-        #specialModal.active {
-            display: block;
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-        }
+            #specialModal.active {
+                display: block;
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
 
         #modalTitle {
             font-family: 'Dancing Script', cursive;
@@ -88,17 +110,22 @@
             color: white;
             padding: 8px 20px;
             border-radius: 15px;
-            cursor: none; 
+            cursor: none;
             font-family: inherit;
             transition: 0.3s;
         }
 
-        #closeBtn:hover { background: rgba(255,255,255,0.1); }
+            #closeBtn:hover {
+                background: rgba(255,255,255,0.1);
+            }
 
         body::after {
             content: "";
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: radial-gradient(circle, transparent 30%, rgba(15, 5, 10, 0.85) 100%);
             pointer-events: none;
             z-index: 3;
@@ -107,349 +134,349 @@
 </head>
 <body>
 
-<div id="typewriter-container">
-    <div id="typewriter-text"></div>
-</div>
+    <div id="typewriter-container">
+        <div id="typewriter-text"></div>
+    </div>
 
-<div id="specialModal">
-    <div id="modalTitle">Our Time</div>
-    <div id="modalCounter">00D 00H 00M 00S</div>
-    <div id="modalNote"></div>
-    <button id="closeBtn">Back</button>
-</div>
+    <div id="specialModal">
+        <div id="modalTitle">Our Time</div>
+        <div id="modalCounter">00D 00H 00M 00S</div>
+        <div id="modalNote"></div>
+        <button id="closeBtn">Back</button>
+    </div>
 
-<canvas id="bgCanvas"></canvas>
-<canvas id="uiCanvas"></canvas>
-<canvas id="cursorCanvas"></canvas>
+    <canvas id="bgCanvas"></canvas>
+    <canvas id="uiCanvas"></canvas>
+    <canvas id="cursorCanvas"></canvas>
 
-<script>
-    const bgCanvas = document.getElementById('bgCanvas');
-    const bgCtx = bgCanvas.getContext('2d');
-    const uiCanvas = document.getElementById('uiCanvas');
-    const uiCtx = uiCanvas.getContext('2d');
-    const cursorCanvas = document.getElementById('cursorCanvas');
-    const cursorCtx = cursorCanvas.getContext('2d');
-    
-    const modal = document.getElementById('specialModal');
-    const modalCounter = document.getElementById('modalCounter');
-    const modalNote = document.getElementById('modalNote');
-    const closeBtn = document.getElementById('closeBtn');
-    const typeText = document.getElementById('typewriter-text');
+    <script>
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const uiCanvas = document.getElementById('uiCanvas');
+        const uiCtx = uiCanvas.getContext('2d');
+        const cursorCanvas = document.getElementById('cursorCanvas');
+        const cursorCtx = cursorCanvas.getContext('2d');
 
-    const SPECIAL_THRESHOLD = 15; 
-    const START_DATE = new Date('2025-09-15T19:11:00'); 
-    const SPECIAL_NOTE = "My dear this gift is my answer to yar question -how many flowers would you pick up from a garden-  Happy 4 month-sary my cute lil empress penguin"; 
+        const modal = document.getElementById('specialModal');
+        const modalCounter = document.getElementById('modalCounter');
+        const modalNote = document.getElementById('modalNote');
+        const closeBtn = document.getElementById('closeBtn');
+        const typeText = document.getElementById('typewriter-text');
 
-    let mouse = { x: -100, y: -100, isDown: false, hoverInteractive: false };
-    let points = [];
-    let ripples = [];
-    let activeStems = [];
-    let activeBlooms = []; 
-    let finishedFlowers = []; 
-    let bloomCount = 0;
-    let specialTriggered = false; 
-    let interactionLocked = true;
-    let isTypewriting = false;
-    
-    const flowerPalettes = [
-        { base: '#3d0a1a', mid: '#9e1b43', main: '#e91e63', top: '#ff80ab' }, 
-        { base: '#2d0510', mid: '#7b113a', main: '#c2185b', top: '#f48fb1' }, 
-        { base: '#4a0e0e', mid: '#b71c1c', main: '#ff5252', top: '#ffab91' }  
-    ];
+        const SPECIAL_THRESHOLD = 15;
+        const START_DATE = new Date('2025-09-15T19:11:00');
+        const SPECIAL_NOTE = "My dear this gift is my answer to yar question -how many flowers would you pick up from a garden-  Happy 4 month-sary my cute lil empress penguin";
 
-    const specialPalette = { base: '#3d2b00', mid: '#b8860b', main: '#ffd700', top: '#fff9e6' };
+        let mouse = { x: -100, y: -100, isDown: false, hoverInteractive: false };
+        let points = [];
+        let ripples = [];
+        let activeStems = [];
+        let activeBlooms = [];
+        let finishedFlowers = [];
+        let bloomCount = 0;
+        let specialTriggered = false;
+        let interactionLocked = true;
+        let isTypewriting = false;
 
-    async function type(message, clearAfter = false) {
-        isTypewriting = true;
-        interactionLocked = true;
-        typeText.textContent = "";
-        for (let i = 0; i < message.length; i++) {
-            typeText.textContent += message[i];
-            await new Promise(r => setTimeout(r, 60));
-        }
-        isTypewriting = false;
-        if (clearAfter) {
-            await new Promise(r => setTimeout(r, 2000));
+        const flowerPalettes = [
+            { base: '#3d0a1a', mid: '#9e1b43', main: '#e91e63', top: '#ff80ab' },
+            { base: '#2d0510', mid: '#7b113a', main: '#c2185b', top: '#f48fb1' },
+            { base: '#4a0e0e', mid: '#b71c1c', main: '#ff5252', top: '#ffab91' }
+        ];
+
+        const specialPalette = { base: '#3d2b00', mid: '#b8860b', main: '#ffd700', top: '#fff9e6' };
+
+        async function type(message, clearAfter = false) {
+            isTypewriting = true;
+            interactionLocked = true;
             typeText.textContent = "";
+            for (let i = 0; i < message.length; i++) {
+                typeText.textContent += message[i];
+                await new Promise(r => setTimeout(r, 60));
+            }
+            isTypewriting = false;
+            if (clearAfter) {
+                await new Promise(r => setTimeout(r, 2000));
+                typeText.textContent = "";
+            }
+            interactionLocked = false;
         }
-        interactionLocked = false;
-    }
 
-    function updateTimer() {
-        const now = new Date();
-        const diff = now - START_DATE;
-        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-        const m = Math.floor((diff / (1000 * 60)) % 60);
-        const s = Math.floor((diff / 1000) % 60);
-        modalCounter.textContent = `${d}D ${h}H ${m}S`;
-    }
-    setInterval(updateTimer, 1000);
-
-    function resize() {
-        bgCanvas.width = uiCanvas.width = cursorCanvas.width = window.innerWidth;
-        bgCanvas.height = uiCanvas.height = cursorCanvas.height = window.innerHeight;
-        bgCtx.fillStyle = '#0a0508';
-        bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
-    }
-
-    function lerpColor(a, b, amount) {
-        const ah = parseInt(a.replace(/#/g, ''), 16),
-              ar = ah >> 16, ag = ah >> 8 & 0xff, ab = ah & 0xff,
-              bh = parseInt(b.replace(/#/g, ''), 16),
-              br = bh >> 16, bg = bh >> 8 & 0xff, bb = bh & 0xff;
-        return `rgb(${Math.round(ar + amount * (br - ar))}, ${Math.round(ag + amount * (bg - ag))}, ${Math.round(ab + amount * (bb - ab))})`;
-    }
-
-    function drawLeaf(ctx, x, y, angle, size, side) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(angle);
-        ctx.scale(side, 1);
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(size * 0.5, -size * 0.2, size, -size * 0.5, size * 0.2, -size);
-        ctx.bezierCurveTo(0, -size * 0.7, -size * 0.2, -size * 0.2, 0, 0);
-        ctx.fill();
-        ctx.restore();
-    }
-
-    function drawTulip(ctx, x, y, angle, stemLength, bloomFactor, palette, isSpecial) {
-        const baseSize = stemLength * 0.055; 
-        const size = Math.max(14, Math.min(baseSize, 35)) * bloomFactor;
-        
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(angle + Math.PI / 2);
-        const grad = ctx.createLinearGradient(0, 0, 0, -size * 4);
-        grad.addColorStop(0, palette.base); 
-        grad.addColorStop(0.3, palette.mid);
-        grad.addColorStop(0.7, palette.main); 
-        grad.addColorStop(1, palette.top); 
-        ctx.globalCompositeOperation = 'source-over';
-        for(let i = 0; i < 3; i++) {
-            drawPetal(ctx, ((i - 1) * 0.15) * bloomFactor, size * 3.2, size * 1.3, grad, palette.top, bloomFactor, 0.9);
+        function updateTimer() {
+            const now = new Date();
+            const diff = now - START_DATE;
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const m = Math.floor((diff / (1000 * 60)) % 60);
+            const s = Math.floor((diff / 1000) % 60);
+            modalCounter.textContent = `${d}D ${h}H ${m}S`;
         }
-        for(let i = 0; i < 2; i++) {
-            drawPetal(ctx, (i === 0 ? -0.4 : 0.4) * bloomFactor, size * 2.8, size * 1.4, grad, palette.top, bloomFactor, 0.75);
-        }
-        if(isSpecial) {
-            ctx.shadowBlur = 15 * bloomFactor;
-            ctx.shadowColor = "rgba(255, 215, 0, 0.5)";
-        }
-        ctx.restore();
-    }
+        setInterval(updateTimer, 1000);
 
-    function drawPetal(ctx, angle, height, width, fill, stroke, bloomFactor, alpha) {
-        ctx.save();
-        ctx.rotate(angle);
-        ctx.globalAlpha = alpha * bloomFactor;
-        ctx.fillStyle = fill;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(-width * 0.5, -height * 0.2, -width, -height * 0.6, -width * 0.2, -height);
-        ctx.lineTo(0, -height * 1.05); 
-        ctx.lineTo(width * 0.2, -height);
-        ctx.bezierCurveTo(width, -height * 0.6, width * 0.5, -height * 0.2, 0, 0);
-        ctx.fill();
-        ctx.restore();
-    }
-
-    function drawHeartPath(ctx, x, y, size) {
-        ctx.beginPath();
-        for (let t = 0; t <= Math.PI * 2; t += 0.1) {
-            const dx = 16 * Math.pow(Math.sin(t), 3);
-            const dy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-            const px = x + dx * (size / 15);
-            const py = y + dy * (size / 15);
-            if (t === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
+        function resize() {
+            bgCanvas.width = uiCanvas.width = cursorCanvas.width = window.innerWidth;
+            bgCanvas.height = uiCanvas.height = cursorCanvas.height = window.innerHeight;
+            bgCtx.fillStyle = '#0a0508';
+            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
         }
-        ctx.closePath();
-    }
 
-    window.addEventListener('mousemove', (e) => {
-        mouse.x = e.clientX;
-        mouse.y = e.clientY;
-        points.push({ x: mouse.x, y: mouse.y, life: 1.0, size: 2 + Math.random() * 2 });
-        mouse.hoverInteractive = false;
-        const btnRect = closeBtn.getBoundingClientRect();
-        if (modal.classList.contains('active') && e.clientX >= btnRect.left && e.clientX <= btnRect.right && e.clientY >= btnRect.top && e.clientY <= btnRect.bottom) {
-            mouse.hoverInteractive = true;
+        function lerpColor(a, b, amount) {
+            const ah = parseInt(a.replace(/#/g, ''), 16),
+                ar = ah >> 16, ag = ah >> 8 & 0xff, ab = ah & 0xff,
+                bh = parseInt(b.replace(/#/g, ''), 16),
+                br = bh >> 16, bg = bh >> 8 & 0xff, bb = bh & 0xff;
+            return `rgb(${Math.round(ar + amount * (br - ar))}, ${Math.round(ag + amount * (bg - ag))}, ${Math.round(ab + amount * (bb - ab))})`;
         }
-        if(!modal.classList.contains('active')) {
-            for(let f of finishedFlowers) {
-                if(f.isSpecial) {
-                    const dist = Math.hypot(e.clientX - f.x, e.clientY - f.y);
-                    if(dist < 50) {
-                        mouse.hoverInteractive = true;
-                        break;
+
+        function drawLeaf(ctx, x, y, angle, size, side) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.scale(side, 1);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(size * 0.5, -size * 0.2, size, -size * 0.5, size * 0.2, -size);
+            ctx.bezierCurveTo(0, -size * 0.7, -size * 0.2, -size * 0.2, 0, 0);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawTulip(ctx, x, y, angle, stemLength, bloomFactor, palette, isSpecial) {
+            const baseSize = stemLength * 0.055;
+            const size = Math.max(14, Math.min(baseSize, 35)) * bloomFactor;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle + Math.PI / 2);
+            const grad = ctx.createLinearGradient(0, 0, 0, -size * 4);
+            grad.addColorStop(0, palette.base);
+            grad.addColorStop(0.3, palette.mid);
+            grad.addColorStop(0.7, palette.main);
+            grad.addColorStop(1, palette.top);
+            ctx.globalCompositeOperation = 'source-over';
+            for (let i = 0; i < 3; i++) {
+                drawPetal(ctx, ((i - 1) * 0.15) * bloomFactor, size * 3.2, size * 1.3, grad, palette.top, bloomFactor, 0.9);
+            }
+            for (let i = 0; i < 2; i++) {
+                drawPetal(ctx, (i === 0 ? -0.4 : 0.4) * bloomFactor, size * 2.8, size * 1.4, grad, palette.top, bloomFactor, 0.75);
+            }
+            if (isSpecial) {
+                ctx.shadowBlur = 15 * bloomFactor;
+                ctx.shadowColor = "rgba(255, 215, 0, 0.5)";
+            }
+            ctx.restore();
+        }
+
+        function drawPetal(ctx, angle, height, width, fill, stroke, bloomFactor, alpha) {
+            ctx.save();
+            ctx.rotate(angle);
+            ctx.globalAlpha = alpha * bloomFactor;
+            ctx.fillStyle = fill;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(-width * 0.5, -height * 0.2, -width, -height * 0.6, -width * 0.2, -height);
+            ctx.lineTo(0, -height * 1.05);
+            ctx.lineTo(width * 0.2, -height);
+            ctx.bezierCurveTo(width, -height * 0.6, width * 0.5, -height * 0.2, 0, 0);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawHeartPath(ctx, x, y, size) {
+            ctx.beginPath();
+            for (let t = 0; t <= Math.PI * 2; t += 0.1) {
+                const dx = 16 * Math.pow(Math.sin(t), 3);
+                const dy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+                const px = x + dx * (size / 15);
+                const py = y + dy * (size / 15);
+                if (t === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            points.push({ x: mouse.x, y: mouse.y, life: 1.0, size: 2 + Math.random() * 2 });
+            mouse.hoverInteractive = false;
+            const btnRect = closeBtn.getBoundingClientRect();
+            if (modal.classList.contains('active') && e.clientX >= btnRect.left && e.clientX <= btnRect.right && e.clientY >= btnRect.top && e.clientY <= btnRect.bottom) {
+                mouse.hoverInteractive = true;
+            }
+            if (!modal.classList.contains('active')) {
+                for (let f of finishedFlowers) {
+                    if (f.isSpecial) {
+                        const dist = Math.hypot(e.clientX - f.x, e.clientY - f.y);
+                        if (dist < 50) {
+                            mouse.hoverInteractive = true;
+                            break;
+                        }
                     }
                 }
             }
-        }
-    });
-
-    window.addEventListener('mousedown', async (e) => {
-        if (interactionLocked) return;
-        mouse.isDown = true;
-        if(modal.classList.contains('active')) {
-            const btnRect = closeBtn.getBoundingClientRect();
-            if (e.clientX >= btnRect.left && e.clientX <= btnRect.right && e.clientY >= btnRect.top && e.clientY <= btnRect.bottom) {
-                modal.classList.remove('active');
-            }
-            return;
-        }
-
-        for(let f of finishedFlowers) {
-            if(f.isSpecial) {
-                const dist = Math.hypot(e.clientX - f.x, e.clientY - f.y);
-                if(dist < 50) {
-                    modalNote.textContent = SPECIAL_NOTE;
-                    modal.classList.add('active');
-                    return;
-                }
-            }
-        }
-
-        ripples.push({ x: e.clientX, y: e.clientY, size: 1, life: 1.0 });
-        const margin = 80;
-        const spawnX = margin + (Math.random() * (bgCanvas.width - margin * 2));
-        const targetH = bgCanvas.height * (0.25 + Math.random() * 0.5);
-
-        const isSpecial = (bloomCount === SPECIAL_THRESHOLD && !specialTriggered);
-        if(isSpecial) specialTriggered = true;
-
-        const greens = isSpecial ? [{ start: '#0a1a05', mid: '#2d5a1a', end: '#ffd700' }] : [{ start: '#051005', mid: '#1a401a', end: '#4caf50' }, { start: '#08150a', mid: '#1b5e20', end: '#81c784' }];
-        const gSet = greens[Math.floor(Math.random() * greens.length)];
-
-        activeStems.push({
-            x: spawnX, y: bgCanvas.height + 20, oldX: spawnX, oldY: bgCanvas.height + 20,
-            startY: bgCanvas.height, angle: -Math.PI / 2 + (Math.random() - 0.5) * 0.1,
-            curve: (Math.random() - 0.5) * 0.01, targetHeight: targetH, totalLength: bgCanvas.height - targetH,
-            baseWidth: 9 + Math.random() * 4, colors: [gSet.start, gSet.mid, gSet.end],
-            palette: isSpecial ? specialPalette : flowerPalettes[Math.floor(Math.random() * flowerPalettes.length)],
-            speed: 2.8 + Math.random() * 1.5,
-            isSpecial: isSpecial
         });
 
-        bloomCount++;
-        const remaining = SPECIAL_THRESHOLD - bloomCount;
-
-        if (bloomCount === 1) {
-            interactionLocked = true;
-            await type("See, a magic", true);
-            await type(`Now only ${remaining} times to go... Keep clicking, my dear`);
-        } else if (remaining > 5) {
-            typeText.textContent = `Now only ${remaining} times to go... Keep clicking, my dear`;
-        } else if (remaining <= 5 && remaining > 2) {
-            typeText.textContent = `Only ${remaining} left, keep going, my dear ya can do it`;
-        } else if (remaining === 2) {
-            interactionLocked = true;
-            await type("Deep breath... in... out... 2 more to go, my dear");
-        } else if (remaining === 1) {
-            interactionLocked = true;
-            await type("One last click... i mean, but ya can keep going even after this one ends", true);
-        } else if (bloomCount === SPECIAL_THRESHOLD) {
-            interactionLocked = true;
-            await type("Click to see NEW magic");
-        } else if (bloomCount > SPECIAL_THRESHOLD) {
-            await type("Click on it...");
-            await new Promise(r => setTimeout(r, 2000));
-            typeText.textContent = "";
-        }
-    });
-
-    window.addEventListener('mouseup', () => { mouse.isDown = false; });
-
-    function animate() {
-        uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
-        cursorCtx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
-        for (let i = activeStems.length - 1; i >= 0; i--) {
-            const s = activeStems[i];
-            if (s.y > s.targetHeight) {
-                s.oldX = s.x; s.oldY = s.y;
-                s.angle += s.curve;
-                s.x += Math.cos(s.angle) * s.speed;
-                s.y += Math.sin(s.angle) * s.speed;
-                const progress = Math.min(1, (s.startY - s.y) / s.totalLength);
-                let col = progress < 0.5 ? lerpColor(s.colors[0], s.colors[1], progress * 2) : lerpColor(s.colors[1], s.colors[2], (progress - 0.5) * 2);
-                bgCtx.beginPath();
-                bgCtx.moveTo(s.oldX, s.oldY);
-                bgCtx.lineTo(s.x, s.y);
-                bgCtx.strokeStyle = col;
-                bgCtx.lineWidth = Math.max(1.8, s.baseWidth * (1 - progress * 0.8));
-                bgCtx.stroke();
-                if(s.isSpecial && progress > 0.4 && progress < 0.42) {
-                    bgCtx.fillStyle = s.colors[1];
-                    drawLeaf(bgCtx, s.x, s.y, s.angle + 0.5, 30, 1);
-                    drawLeaf(bgCtx, s.x, s.y, s.angle - 0.5, 30, -1);
+        window.addEventListener('mousedown', async (e) => {
+            if (interactionLocked) return;
+            mouse.isDown = true;
+            if (modal.classList.contains('active')) {
+                const btnRect = closeBtn.getBoundingClientRect();
+                if (e.clientX >= btnRect.left && e.clientX <= btnRect.right && e.clientY >= btnRect.top && e.clientY <= btnRect.bottom) {
+                    modal.classList.remove('active');
                 }
-            } else {
-                activeBlooms.push({ ...s, bloomFactor: 0 });
-                activeStems.splice(i, 1);
+                return;
             }
-        }
-        for (let i = activeBlooms.length - 1; i >= 0; i--) {
-            const b = activeBlooms[i];
-            b.bloomFactor += 0.02;
-            if (b.bloomFactor >= 1) {
-                drawTulip(bgCtx, b.x, b.y, b.angle, b.totalLength, 1, b.palette, b.isSpecial);
-                finishedFlowers.push(b);
-                activeBlooms.splice(i, 1);
-                if (b.isSpecial) {
-                    typeText.textContent = "";
+
+            for (let f of finishedFlowers) {
+                if (f.isSpecial) {
+                    const dist = Math.hypot(e.clientX - f.x, e.clientY - f.y);
+                    if (dist < 50) {
+                        modalNote.textContent = SPECIAL_NOTE;
+                        modal.classList.add('active');
+                        return;
+                    }
                 }
-            } else {
-                drawTulip(uiCtx, b.x, b.y, b.angle, b.totalLength, b.bloomFactor, b.palette, b.isSpecial);
             }
-        }
-        cursorCtx.globalCompositeOperation = 'screen';
-        for (let i = ripples.length - 1; i >= 0; i--) {
-            const r = ripples[i]; r.size += 2.5; r.life -= 0.02;
-            if (r.life > 0) {
-                cursorCtx.strokeStyle = `rgba(255, 64, 129, ${r.life * 0.6})`;
-                cursorCtx.lineWidth = 1.2;
-                drawHeartPath(cursorCtx, r.x, r.y, r.size);
+
+            ripples.push({ x: e.clientX, y: e.clientY, size: 1, life: 1.0 });
+            const margin = 80;
+            const spawnX = margin + (Math.random() * (bgCanvas.width - margin * 2));
+            const targetH = bgCanvas.height * (0.25 + Math.random() * 0.5);
+
+            const isSpecial = (bloomCount === SPECIAL_THRESHOLD && !specialTriggered);
+            if (isSpecial) specialTriggered = true;
+
+            const greens = isSpecial ? [{ start: '#0a1a05', mid: '#2d5a1a', end: '#ffd700' }] : [{ start: '#051005', mid: '#1a401a', end: '#4caf50' }, { start: '#08150a', mid: '#1b5e20', end: '#81c784' }];
+            const gSet = greens[Math.floor(Math.random() * greens.length)];
+
+            activeStems.push({
+                x: spawnX, y: bgCanvas.height + 20, oldX: spawnX, oldY: bgCanvas.height + 20,
+                startY: bgCanvas.height, angle: -Math.PI / 2 + (Math.random() - 0.5) * 0.1,
+                curve: (Math.random() - 0.5) * 0.01, targetHeight: targetH, totalLength: bgCanvas.height - targetH,
+                baseWidth: 9 + Math.random() * 4, colors: [gSet.start, gSet.mid, gSet.end],
+                palette: isSpecial ? specialPalette : flowerPalettes[Math.floor(Math.random() * flowerPalettes.length)],
+                speed: 2.8 + Math.random() * 1.5,
+                isSpecial: isSpecial
+            });
+
+            bloomCount++;
+            const remaining = SPECIAL_THRESHOLD - bloomCount;
+
+            if (bloomCount === 1) {
+                interactionLocked = true;
+                await type("See, a magic", true);
+                await type(`Now only ${remaining} times to go... Keep clicking, my dear`);
+            } else if (remaining > 5) {
+                typeText.textContent = `Now only ${remaining} times to go... Keep clicking, my dear`;
+            } else if (remaining <= 5 && remaining > 2) {
+                typeText.textContent = `Only ${remaining} left, keep going, my dear ya can do it`;
+            } else if (remaining === 2) {
+                interactionLocked = true;
+                await type("Deep breath... in... out... 2 more to go, my dear");
+            } else if (remaining === 1) {
+                interactionLocked = true;
+                await type("One last click... i mean, but ya can keep going even after this one ends", true);
+            } else if (bloomCount === SPECIAL_THRESHOLD) {
+                interactionLocked = true;
+                await type("Click to see NEW magic");
+            } else if (bloomCount > SPECIAL_THRESHOLD) {
+                await type("Click on it...");
+                await new Promise(r => setTimeout(r, 2000));
+                typeText.textContent = "";
+            }
+        });
+
+        window.addEventListener('mouseup', () => { mouse.isDown = false; });
+
+        function animate() {
+            uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
+            cursorCtx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
+            for (let i = activeStems.length - 1; i >= 0; i--) {
+                const s = activeStems[i];
+                if (s.y > s.targetHeight) {
+                    s.oldX = s.x; s.oldY = s.y;
+                    s.angle += s.curve;
+                    s.x += Math.cos(s.angle) * s.speed;
+                    s.y += Math.sin(s.angle) * s.speed;
+                    const progress = Math.min(1, (s.startY - s.y) / s.totalLength);
+                    let col = progress < 0.5 ? lerpColor(s.colors[0], s.colors[1], progress * 2) : lerpColor(s.colors[1], s.colors[2], (progress - 0.5) * 2);
+                    bgCtx.beginPath();
+                    bgCtx.moveTo(s.oldX, s.oldY);
+                    bgCtx.lineTo(s.x, s.y);
+                    bgCtx.strokeStyle = col;
+                    bgCtx.lineWidth = Math.max(1.8, s.baseWidth * (1 - progress * 0.8));
+                    bgCtx.stroke();
+                    if (s.isSpecial && progress > 0.4 && progress < 0.42) {
+                        bgCtx.fillStyle = s.colors[1];
+                        drawLeaf(bgCtx, s.x, s.y, s.angle + 0.5, 30, 1);
+                        drawLeaf(bgCtx, s.x, s.y, s.angle - 0.5, 30, -1);
+                    }
+                } else {
+                    activeBlooms.push({ ...s, bloomFactor: 0 });
+                    activeStems.splice(i, 1);
+                }
+            }
+            for (let i = activeBlooms.length - 1; i >= 0; i--) {
+                const b = activeBlooms[i];
+                b.bloomFactor += 0.02;
+                if (b.bloomFactor >= 1) {
+                    drawTulip(bgCtx, b.x, b.y, b.angle, b.totalLength, 1, b.palette, b.isSpecial);
+                    finishedFlowers.push(b);
+                    activeBlooms.splice(i, 1);
+                    if (b.isSpecial) {
+                        typeText.textContent = "";
+                    }
+                } else {
+                    drawTulip(uiCtx, b.x, b.y, b.angle, b.totalLength, b.bloomFactor, b.palette, b.isSpecial);
+                }
+            }
+            cursorCtx.globalCompositeOperation = 'screen';
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                const r = ripples[i]; r.size += 2.5; r.life -= 0.02;
+                if (r.life > 0) {
+                    cursorCtx.strokeStyle = `rgba(255, 64, 129, ${r.life * 0.6})`;
+                    cursorCtx.lineWidth = 1.2;
+                    drawHeartPath(cursorCtx, r.x, r.y, r.size);
+                    cursorCtx.stroke();
+                } else ripples.splice(i, 1);
+            }
+            for (let i = points.length - 1; i >= 0; i--) {
+                const p = points[i]; p.life -= 0.015;
+                if (p.life > 0) {
+                    cursorCtx.beginPath();
+                    cursorCtx.fillStyle = `rgba(255, 100, 150, ${p.life * 0.5})`;
+                    cursorCtx.arc(p.x + Math.sin(p.life * 8) * 4, p.y + (1 - p.life) * 15, p.size * p.life, 0, Math.PI * 2);
+                    cursorCtx.fill();
+                } else points.splice(i, 1);
+            }
+            cursorCtx.globalCompositeOperation = 'source-over';
+            const pulseRate = mouse.hoverInteractive ? 0.012 : 0.005;
+            const basePulse = 1 + Math.sin(Date.now() * pulseRate) * (mouse.hoverInteractive ? 0.2 : 0.1);
+            const clickScale = mouse.isDown ? 0.7 : 1.0;
+            const totalScale = basePulse * clickScale * (mouse.hoverInteractive ? 1.4 : 1.0);
+            cursorCtx.shadowBlur = mouse.hoverInteractive ? 15 : 10;
+            cursorCtx.shadowColor = mouse.hoverInteractive ? '#ffd700' : '#e91e63';
+            cursorCtx.fillStyle = mouse.hoverInteractive ? 'rgba(255, 215, 0, 0.9)' : 'rgba(255, 128, 171, 0.9)';
+            drawHeartPath(cursorCtx, mouse.x, mouse.y, 8 * totalScale);
+            cursorCtx.fill();
+            if (mouse.hoverInteractive) {
+                cursorCtx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+                cursorCtx.lineWidth = 2;
                 cursorCtx.stroke();
-            } else ripples.splice(i, 1);
+            }
+            cursorCtx.shadowBlur = 0;
+            requestAnimationFrame(animate);
         }
-        for (let i = points.length - 1; i >= 0; i--) {
-            const p = points[i]; p.life -= 0.015;
-            if (p.life > 0) {
-                cursorCtx.beginPath();
-                cursorCtx.fillStyle = `rgba(255, 100, 150, ${p.life * 0.5})`;
-                cursorCtx.arc(p.x + Math.sin(p.life * 8) * 4, p.y + (1 - p.life) * 15, p.size * p.life, 0, Math.PI * 2);
-                cursorCtx.fill();
-            } else points.splice(i, 1);
-        }
-        cursorCtx.globalCompositeOperation = 'source-over';
-        const pulseRate = mouse.hoverInteractive ? 0.012 : 0.005;
-        const basePulse = 1 + Math.sin(Date.now() * pulseRate) * (mouse.hoverInteractive ? 0.2 : 0.1);
-        const clickScale = mouse.isDown ? 0.7 : 1.0;
-        const totalScale = basePulse * clickScale * (mouse.hoverInteractive ? 1.4 : 1.0);
-        cursorCtx.shadowBlur = mouse.hoverInteractive ? 15 : 10;
-        cursorCtx.shadowColor = mouse.hoverInteractive ? '#ffd700' : '#e91e63';
-        cursorCtx.fillStyle = mouse.hoverInteractive ? 'rgba(255, 215, 0, 0.9)' : 'rgba(255, 128, 171, 0.9)';
-        drawHeartPath(cursorCtx, mouse.x, mouse.y, 8 * totalScale);
-        cursorCtx.fill();
-        if (mouse.hoverInteractive) {
-            cursorCtx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-            cursorCtx.lineWidth = 2;
-            cursorCtx.stroke();
-        }
-        cursorCtx.shadowBlur = 0;
-        requestAnimationFrame(animate);
-    }
 
-    window.addEventListener('resize', resize);
-    resize();
-    animate();
-    
-    window.onload = () => {
-        type("Click to see magic...");
-    };
-</script>
+        window.addEventListener('resize', resize);
+        resize();
+        animate();
+
+        window.onload = () => {
+            type("Click to see magic...");
+        };
+    </script>
 
 </body>
 </html>
