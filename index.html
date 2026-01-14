@@ -161,17 +161,23 @@
     const specialPalette = { base: '#3d2b00', mid: '#b8860b', main: '#ffd700', top: '#fff9e6' };
 
     async function type(message, clearAfter = false) {
+        if (specialSeen) {
+            typeText.textContent = "";
+            return;
+        }
+        
         isTypewriting = true;
         interactionLocked = true;
         typeText.textContent = "";
         for (let i = 0; i < message.length; i++) {
+            if (specialSeen) break;
             typeText.textContent += message[i];
             await new Promise(r => setTimeout(r, 60));
         }
         isTypewriting = false;
         if (clearAfter) {
             await new Promise(r => setTimeout(r, 2000));
-            typeText.textContent = "";
+            if (!specialSeen) typeText.textContent = "";
         }
         interactionLocked = false;
     }
@@ -192,6 +198,11 @@
         bgCanvas.height = uiCanvas.height = cursorCanvas.height = window.innerHeight;
         bgCtx.fillStyle = '#0a0508';
         bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+        
+        // Redraw all finished flowers to ensure they stay on the background after resize
+        finishedFlowers.forEach(f => {
+            drawTulip(bgCtx, f.x, f.y, f.angle, f.totalLength, 1, f.palette, f.isSpecial);
+        });
     }
 
     function lerpColor(a, b, amount) {
@@ -236,7 +247,7 @@
         }
         if(isSpecial) {
             ctx.shadowBlur = 15 * bloomFactor;
-            ctx.shadowColor = "rgba(255, 215, 0, 0.5)";
+            ctx.shadowColor = "rgba(255, 215, 0, 0.6)";
         }
         ctx.restore();
     }
@@ -294,6 +305,7 @@
     window.addEventListener('mousedown', async (e) => {
         if (interactionLocked) return;
         mouse.isDown = true;
+
         if(modal.classList.contains('active')) {
             const btnRect = closeBtn.getBoundingClientRect();
             if (e.clientX >= btnRect.left && e.clientX <= btnRect.right && e.clientY >= btnRect.top && e.clientY <= btnRect.bottom) {
@@ -309,7 +321,7 @@
                     modalNote.textContent = SPECIAL_NOTE;
                     modal.classList.add('active');
                     specialSeen = true;
-                    typeText.textContent = "";
+                    typeText.textContent = ""; 
                     return;
                 }
             }
@@ -336,29 +348,31 @@
             isSpecial: isSpecial
         });
 
-        bloomCount++;
-        const remaining = SPECIAL_THRESHOLD - bloomCount;
+        if (!specialSeen) {
+            bloomCount++;
+            const remaining = SPECIAL_THRESHOLD - bloomCount;
 
-        if (bloomCount === 1) {
-            interactionLocked = true;
-            await type("See, a magic", true);
-            await type(`Now only ${remaining} times to go... Keep clicking, my dear`);
-        } else if (remaining > 5) {
-            typeText.textContent = `Now only ${remaining} times to go... Keep clicking, my dear`;
-        } else if (remaining <= 5 && remaining > 2) {
-            typeText.textContent = `Only ${remaining} left, keep going, my dear ya can do it`;
-        } else if (remaining === 2) {
-            interactionLocked = true;
-            await type("Deep breath... in... out... 2 more to go, my dear");
-        } else if (remaining === 1) {
-            interactionLocked = true;
-            await type("One last click... i mean, but ya can keep going even after this one ends", true);
-        } else if (bloomCount === SPECIAL_THRESHOLD) {
-            interactionLocked = true;
-            await type("Click to see NEW magic");
-        } else if (bloomCount > SPECIAL_THRESHOLD && !specialSeen) {
-            await type("Click on it...");
-        } else if (specialSeen) {
+            if (bloomCount === 1) {
+                interactionLocked = true;
+                await type("See, a magic", true);
+                await type(`Now only ${remaining} times to go... Keep clicking, my dear`);
+            } else if (remaining > 5) {
+                typeText.textContent = `Now only ${remaining} times to go... Keep clicking, my dear`;
+            } else if (remaining <= 5 && remaining > 2) {
+                typeText.textContent = `Only ${remaining} left, keep going, my dear ya can do it`;
+            } else if (remaining === 2) {
+                interactionLocked = true;
+                await type("Deep breath... in... out... 2 more to go, my dear");
+            } else if (remaining === 1) {
+                interactionLocked = true;
+                await type("One last click... i mean, but ya can keep going even after this one ends", true);
+            } else if (bloomCount === SPECIAL_THRESHOLD) {
+                interactionLocked = true;
+                await type("Click to see NEW magic");
+            } else if (bloomCount > SPECIAL_THRESHOLD) {
+                typeText.textContent = "Click on it...";
+            }
+        } else {
             typeText.textContent = "";
         }
     });
@@ -368,6 +382,10 @@
     function animate() {
         uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
         cursorCtx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
+        
+        // Always redraw standard flowers on background
+        // but draw special ones on top by separating them
+        
         for (let i = activeStems.length - 1; i >= 0; i--) {
             const s = activeStems[i];
             if (s.y > s.targetHeight) {
@@ -393,20 +411,32 @@
                 activeStems.splice(i, 1);
             }
         }
-        for (let i = activeBlooms.length - 1; i >= 0; i--) {
-            const b = activeBlooms[i];
+        
+        // Group blooming flowers so special one stays on top
+        const standardBlooms = activeBlooms.filter(b => !b.isSpecial);
+        const specialBlooms = activeBlooms.filter(b => b.isSpecial);
+
+        [...standardBlooms, ...specialBlooms].forEach((b, idx) => {
             b.bloomFactor += 0.02;
             if (b.bloomFactor >= 1) {
+                // Draw onto background permanently
                 drawTulip(bgCtx, b.x, b.y, b.angle, b.totalLength, 1, b.palette, b.isSpecial);
                 finishedFlowers.push(b);
-                activeBlooms.splice(i, 1);
-                if (b.isSpecial) {
-                    typeText.textContent = "";
-                }
+                const originalIndex = activeBlooms.indexOf(b);
+                activeBlooms.splice(originalIndex, 1);
             } else {
+                // Draw transiently on UI canvas
                 drawTulip(uiCtx, b.x, b.y, b.angle, b.totalLength, b.bloomFactor, b.palette, b.isSpecial);
             }
+        });
+
+        // CRITICAL: Ensure the special flower is always drawn LAST on the background 
+        // to maintain its Z-index priority even after new flowers are added
+        const foundSpecial = finishedFlowers.find(f => f.isSpecial);
+        if (foundSpecial) {
+            drawTulip(bgCtx, foundSpecial.x, foundSpecial.y, foundSpecial.angle, foundSpecial.totalLength, 1, foundSpecial.palette, true);
         }
+        
         cursorCtx.globalCompositeOperation = 'screen';
         for (let i = ripples.length - 1; i >= 0; i--) {
             const r = ripples[i]; r.size += 2.5; r.life -= 0.02;
@@ -426,6 +456,7 @@
                 cursorCtx.fill();
             } else points.splice(i, 1);
         }
+        
         cursorCtx.globalCompositeOperation = 'source-over';
         const pulseRate = mouse.hoverInteractive ? 0.012 : 0.005;
         const basePulse = 1 + Math.sin(Date.now() * pulseRate) * (mouse.hoverInteractive ? 0.2 : 0.1);
