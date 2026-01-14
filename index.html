@@ -185,11 +185,15 @@
     function updateTimer() {
         const now = new Date();
         const diff = now - START_DATE;
+        
         const d = Math.floor(diff / (1000 * 60 * 60 * 24));
         const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
         const m = Math.floor((diff / (1000 * 60)) % 60);
         const s = Math.floor((diff / 1000) % 60);
-        modalCounter.textContent = `${d}D ${h}H ${m}S`;
+
+        const pad = (n) => n.toString().padStart(2, '0');
+        
+        modalCounter.textContent = `${pad(d)}D ${pad(h)}H ${pad(m)}M ${pad(s)}S`;
     }
     setInterval(updateTimer, 1000);
 
@@ -199,7 +203,6 @@
         bgCtx.fillStyle = '#0a0508';
         bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
         
-        // Redraw all finished flowers to ensure they stay on the background after resize
         finishedFlowers.forEach(f => {
             drawTulip(bgCtx, f.x, f.y, f.angle, f.totalLength, 1, f.palette, f.isSpecial);
         });
@@ -209,7 +212,7 @@
         const ah = parseInt(a.replace(/#/g, ''), 16),
               ar = ah >> 16, ag = ah >> 8 & 0xff, ab = ah & 0xff,
               bh = parseInt(b.replace(/#/g, ''), 16),
-              br = bh >> 16, bg = bh >> 8 & 0xff, bb = bh & 0xff;
+              br = bh >> 16, bg = bh >> 8 & 0xff, bb = ah & 0xff;
         return `rgb(${Math.round(ar + amount * (br - ar))}, ${Math.round(ag + amount * (bg - ag))}, ${Math.round(ab + amount * (bb - ab))})`;
     }
 
@@ -383,9 +386,6 @@
         uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
         cursorCtx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
         
-        // Always redraw standard flowers on background
-        // but draw special ones on top by separating them
-        
         for (let i = activeStems.length - 1; i >= 0; i--) {
             const s = activeStems[i];
             if (s.y > s.targetHeight) {
@@ -412,26 +412,21 @@
             }
         }
         
-        // Group blooming flowers so special one stays on top
         const standardBlooms = activeBlooms.filter(b => !b.isSpecial);
         const specialBlooms = activeBlooms.filter(b => b.isSpecial);
 
         [...standardBlooms, ...specialBlooms].forEach((b, idx) => {
             b.bloomFactor += 0.02;
             if (b.bloomFactor >= 1) {
-                // Draw onto background permanently
                 drawTulip(bgCtx, b.x, b.y, b.angle, b.totalLength, 1, b.palette, b.isSpecial);
                 finishedFlowers.push(b);
                 const originalIndex = activeBlooms.indexOf(b);
                 activeBlooms.splice(originalIndex, 1);
             } else {
-                // Draw transiently on UI canvas
                 drawTulip(uiCtx, b.x, b.y, b.angle, b.totalLength, b.bloomFactor, b.palette, b.isSpecial);
             }
         });
 
-        // CRITICAL: Ensure the special flower is always drawn LAST on the background 
-        // to maintain its Z-index priority even after new flowers are added
         const foundSpecial = finishedFlowers.find(f => f.isSpecial);
         if (foundSpecial) {
             drawTulip(bgCtx, foundSpecial.x, foundSpecial.y, foundSpecial.angle, foundSpecial.totalLength, 1, foundSpecial.palette, true);
