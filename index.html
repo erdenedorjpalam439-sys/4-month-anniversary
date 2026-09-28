@@ -113,7 +113,11 @@
 
 <div id="specialModal">
     <div id="modalTitle">Our Time</div>
-    <div id="modalCounter">00D 00H 00M 00S</div>
+    <div id="modalCounter"></div>
+    <div id="modalSince" style="font-size:0.75rem;letter-spacing:1px;color:rgba(255,255,255,0.45);margin:-12px 0 8px 0;"></div>
+    <div id="modalNewTimer" style="font-size:0.95rem;letter-spacing:2px;color:#ff80ab;"></div>
+    <div id="modalNewLabel" style="font-size:0.7rem;letter-spacing:1px;color:rgba(255,255,255,0.35);margin-top:4px;display:none;"></div>
+    <div style="font-size:0.82rem;line-height:1.7;color:rgba(255,255,255,0.75);font-style:italic;margin-top:14px;">thanks for everything my love, if ya one day visit these sites again just know that i'd never forget ya</div>
     <div id="modalNote"></div>
     <button id="closeBtn">Back</button>
 </div>
@@ -136,36 +140,70 @@
     const closeBtn = document.getElementById('closeBtn');
     const typeText = document.getElementById('typewriter-text');
 
-    const SPECIAL_THRESHOLD = 15; 
-    const START_DATE = new Date('2025-09-15T19:11:00'); 
-    const SPECIAL_NOTE = "My dear this gift is my answer to yar question -how many flowers would you pick up from a garden-  Happy 4 month-sary my cute lil empress penguin"; 
+    const SPECIAL_THRESHOLD  = 15;
+    const START_DATE         = new Date('2025-09-15T19:11:00');
+    const END_DATE           = new Date('2026-09-28T16:38:00');
+    const FAREWELL_MSG       = "thanks for everything my love, if ya one day visit these sites again just know that i'd never forget ya";
+    const SPECIAL_NOTE       = "My dear this gift is my answer to yar question -how many flowers would you pick up from a garden-  Happy 4 month-sary my cute lil empress penguin";
 
     let mouse = { x: -100, y: -100, isDown: false, hoverInteractive: false };
     let points = [];
     let ripples = [];
     let activeStems = [];
-    let activeBlooms = []; 
-    let finishedFlowers = []; 
+    let activeBlooms = [];
+    let finishedFlowers = [];
     let bloomCount = 0;
-    let specialTriggered = false; 
+    let specialTriggered = false;
     let specialSeen = false;
     let interactionLocked = true;
     let isTypewriting = false;
     
     const flowerPalettes = [
-        { base: '#3d0a1a', mid: '#9e1b43', main: '#e91e63', top: '#ff80ab' }, 
-        { base: '#2d0510', mid: '#7b113a', main: '#c2185b', top: '#f48fb1' }, 
-        { base: '#4a0e0e', mid: '#b71c1c', main: '#ff5252', top: '#ffab91' }  
+        { base: '#3d0a1a', mid: '#9e1b43', main: '#e91e63', top: '#ff80ab' },
+        { base: '#2d0510', mid: '#7b113a', main: '#c2185b', top: '#f48fb1' },
+        { base: '#4a0e0e', mid: '#b71c1c', main: '#ff5252', top: '#ffab91' }
     ];
 
     const specialPalette = { base: '#3d2b00', mid: '#b8860b', main: '#ffd700', top: '#fff9e6' };
 
-    async function type(message, clearAfter = false) {
-        if (specialSeen) {
-            typeText.textContent = "";
-            return;
+    // --- timer logic ---
+    const pad = (n) => n.toString().padStart(2, '0');
+
+    function formatDiff(diff) {
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const m = Math.floor((diff / (1000 * 60)) % 60);
+        const s = Math.floor((diff / 1000) % 60);
+        return `${pad(d)}D ${pad(h)}H ${pad(m)}M ${pad(s)}S`;
+    }
+
+    // frozen duration between the two dates — always static
+    const FROZEN_DURATION = formatDiff(END_DATE - START_DATE);
+
+    const modalNewTimer = document.getElementById('modalNewTimer');
+    const modalNewLabel = document.getElementById('modalNewLabel');
+    const modalSince    = document.getElementById('modalSince');
+
+    function updateTimer() {
+        // line 1: always shows frozen duration
+        modalCounter.textContent = FROZEN_DURATION;
+        modalSince.textContent   = "15 Sep 2025 → 28 Sep 2026";
+
+        // line 2: live timer from END_DATE onward (only once past it)
+        const now = new Date();
+        if (now >= END_DATE) {
+            const sinceDiff = now - END_DATE;
+            modalNewTimer.textContent = formatDiff(sinceDiff);
+            modalNewLabel.textContent = "since then...";
+            modalNewLabel.style.display = "block";
         }
-        
+    }
+    setInterval(updateTimer, 1000);
+    updateTimer();
+
+    // --- rest unchanged ---
+    async function type(message, clearAfter = false) {
+        if (specialSeen) { typeText.textContent = ""; return; }
         isTypewriting = true;
         interactionLocked = true;
         typeText.textContent = "";
@@ -182,27 +220,11 @@
         interactionLocked = false;
     }
 
-    function updateTimer() {
-        const now = new Date();
-        const diff = now - START_DATE;
-        
-        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-        const m = Math.floor((diff / (1000 * 60)) % 60);
-        const s = Math.floor((diff / 1000) % 60);
-
-        const pad = (n) => n.toString().padStart(2, '0');
-        
-        modalCounter.textContent = `${pad(d)}D ${pad(h)}H ${pad(m)}M ${pad(s)}S`;
-    }
-    setInterval(updateTimer, 1000);
-
     function resize() {
         bgCanvas.width = uiCanvas.width = cursorCanvas.width = window.innerWidth;
         bgCanvas.height = uiCanvas.height = cursorCanvas.height = window.innerHeight;
         bgCtx.fillStyle = '#0a0508';
         bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
-        
         finishedFlowers.forEach(f => {
             drawTulip(bgCtx, f.x, f.y, f.angle, f.totalLength, 1, f.palette, f.isSpecial);
         });
@@ -230,25 +252,24 @@
     }
 
     function drawTulip(ctx, x, y, angle, stemLength, bloomFactor, palette, isSpecial) {
-        const baseSize = stemLength * 0.055; 
+        const baseSize = stemLength * 0.055;
         const size = Math.max(14, Math.min(baseSize, 35)) * bloomFactor;
-        
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(angle + Math.PI / 2);
         const grad = ctx.createLinearGradient(0, 0, 0, -size * 4);
-        grad.addColorStop(0, palette.base); 
+        grad.addColorStop(0, palette.base);
         grad.addColorStop(0.3, palette.mid);
-        grad.addColorStop(0.7, palette.main); 
-        grad.addColorStop(1, palette.top); 
+        grad.addColorStop(0.7, palette.main);
+        grad.addColorStop(1, palette.top);
         ctx.globalCompositeOperation = 'source-over';
-        for(let i = 0; i < 3; i++) {
+        for (let i = 0; i < 3; i++) {
             drawPetal(ctx, ((i - 1) * 0.15) * bloomFactor, size * 3.2, size * 1.3, grad, palette.top, bloomFactor, 0.9);
         }
-        for(let i = 0; i < 2; i++) {
+        for (let i = 0; i < 2; i++) {
             drawPetal(ctx, (i === 0 ? -0.4 : 0.4) * bloomFactor, size * 2.8, size * 1.4, grad, palette.top, bloomFactor, 0.75);
         }
-        if(isSpecial) {
+        if (isSpecial) {
             ctx.shadowBlur = 15 * bloomFactor;
             ctx.shadowColor = "rgba(255, 215, 0, 0.6)";
         }
@@ -263,7 +284,7 @@
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.bezierCurveTo(-width * 0.5, -height * 0.2, -width, -height * 0.6, -width * 0.2, -height);
-        ctx.lineTo(0, -height * 1.05); 
+        ctx.lineTo(0, -height * 1.05);
         ctx.lineTo(width * 0.2, -height);
         ctx.bezierCurveTo(width, -height * 0.6, width * 0.5, -height * 0.2, 0, 0);
         ctx.fill();
@@ -292,14 +313,11 @@
         if (modal.classList.contains('active') && e.clientX >= btnRect.left && e.clientX <= btnRect.right && e.clientY >= btnRect.top && e.clientY <= btnRect.bottom) {
             mouse.hoverInteractive = true;
         }
-        if(!modal.classList.contains('active')) {
-            for(let f of finishedFlowers) {
-                if(f.isSpecial) {
+        if (!modal.classList.contains('active')) {
+            for (let f of finishedFlowers) {
+                if (f.isSpecial) {
                     const dist = Math.hypot(e.clientX - f.x, e.clientY - f.y);
-                    if(dist < 50) {
-                        mouse.hoverInteractive = true;
-                        break;
-                    }
+                    if (dist < 50) { mouse.hoverInteractive = true; break; }
                 }
             }
         }
@@ -309,7 +327,7 @@
         if (interactionLocked) return;
         mouse.isDown = true;
 
-        if(modal.classList.contains('active')) {
+        if (modal.classList.contains('active')) {
             const btnRect = closeBtn.getBoundingClientRect();
             if (e.clientX >= btnRect.left && e.clientX <= btnRect.right && e.clientY >= btnRect.top && e.clientY <= btnRect.bottom) {
                 modal.classList.remove('active');
@@ -317,28 +335,31 @@
             return;
         }
 
-        for(let f of finishedFlowers) {
-            if(f.isSpecial) {
+        for (let f of finishedFlowers) {
+            if (f.isSpecial) {
                 const dist = Math.hypot(e.clientX - f.x, e.clientY - f.y);
-                if(dist < 50) {
+                if (dist < 50) {
                     modalNote.textContent = SPECIAL_NOTE;
+                    updateTimer();
                     modal.classList.add('active');
                     specialSeen = true;
-                    typeText.textContent = ""; 
+                    typeText.textContent = "";
                     return;
                 }
             }
         }
 
         ripples.push({ x: e.clientX, y: e.clientY, size: 1, life: 1.0 });
-        const margin = 80;
-        const spawnX = margin + (Math.random() * (bgCanvas.width - margin * 2));
+        const margin  = 80;
+        const spawnX  = margin + (Math.random() * (bgCanvas.width - margin * 2));
         const targetH = bgCanvas.height * (0.25 + Math.random() * 0.5);
 
         const isSpecial = (bloomCount === SPECIAL_THRESHOLD && !specialTriggered);
-        if(isSpecial) specialTriggered = true;
+        if (isSpecial) specialTriggered = true;
 
-        const greens = isSpecial ? [{ start: '#0a1a05', mid: '#2d5a1a', end: '#ffd700' }] : [{ start: '#051005', mid: '#1a401a', end: '#4caf50' }, { start: '#08150a', mid: '#1b5e20', end: '#81c784' }];
+        const greens = isSpecial
+            ? [{ start: '#0a1a05', mid: '#2d5a1a', end: '#ffd700' }]
+            : [{ start: '#051005', mid: '#1a401a', end: '#4caf50' }, { start: '#08150a', mid: '#1b5e20', end: '#81c784' }];
         const gSet = greens[Math.floor(Math.random() * greens.length)];
 
         activeStems.push({
@@ -354,7 +375,6 @@
         if (!specialSeen) {
             bloomCount++;
             const remaining = SPECIAL_THRESHOLD - bloomCount;
-
             if (bloomCount === 1) {
                 interactionLocked = true;
                 await type("See, a magic", true);
@@ -385,7 +405,7 @@
     function animate() {
         uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
         cursorCtx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
-        
+
         for (let i = activeStems.length - 1; i >= 0; i--) {
             const s = activeStems[i];
             if (s.y > s.targetHeight) {
@@ -394,14 +414,16 @@
                 s.x += Math.cos(s.angle) * s.speed;
                 s.y += Math.sin(s.angle) * s.speed;
                 const progress = Math.min(1, (s.startY - s.y) / s.totalLength);
-                let col = progress < 0.5 ? lerpColor(s.colors[0], s.colors[1], progress * 2) : lerpColor(s.colors[1], s.colors[2], (progress - 0.5) * 2);
+                let col = progress < 0.5
+                    ? lerpColor(s.colors[0], s.colors[1], progress * 2)
+                    : lerpColor(s.colors[1], s.colors[2], (progress - 0.5) * 2);
                 bgCtx.beginPath();
                 bgCtx.moveTo(s.oldX, s.oldY);
                 bgCtx.lineTo(s.x, s.y);
                 bgCtx.strokeStyle = col;
                 bgCtx.lineWidth = Math.max(1.8, s.baseWidth * (1 - progress * 0.8));
                 bgCtx.stroke();
-                if(s.isSpecial && progress > 0.4 && progress < 0.42) {
+                if (s.isSpecial && progress > 0.4 && progress < 0.42) {
                     bgCtx.fillStyle = s.colors[1];
                     drawLeaf(bgCtx, s.x, s.y, s.angle + 0.5, 30, 1);
                     drawLeaf(bgCtx, s.x, s.y, s.angle - 0.5, 30, -1);
@@ -411,17 +433,16 @@
                 activeStems.splice(i, 1);
             }
         }
-        
-        const standardBlooms = activeBlooms.filter(b => !b.isSpecial);
-        const specialBlooms = activeBlooms.filter(b => b.isSpecial);
 
-        [...standardBlooms, ...specialBlooms].forEach((b, idx) => {
+        const standardBlooms = activeBlooms.filter(b => !b.isSpecial);
+        const specialBlooms  = activeBlooms.filter(b => b.isSpecial);
+
+        [...standardBlooms, ...specialBlooms].forEach((b) => {
             b.bloomFactor += 0.02;
             if (b.bloomFactor >= 1) {
                 drawTulip(bgCtx, b.x, b.y, b.angle, b.totalLength, 1, b.palette, b.isSpecial);
                 finishedFlowers.push(b);
-                const originalIndex = activeBlooms.indexOf(b);
-                activeBlooms.splice(originalIndex, 1);
+                activeBlooms.splice(activeBlooms.indexOf(b), 1);
             } else {
                 drawTulip(uiCtx, b.x, b.y, b.angle, b.totalLength, b.bloomFactor, b.palette, b.isSpecial);
             }
@@ -431,7 +452,7 @@
         if (foundSpecial) {
             drawTulip(bgCtx, foundSpecial.x, foundSpecial.y, foundSpecial.angle, foundSpecial.totalLength, 1, foundSpecial.palette, true);
         }
-        
+
         cursorCtx.globalCompositeOperation = 'screen';
         for (let i = ripples.length - 1; i >= 0; i--) {
             const r = ripples[i]; r.size += 2.5; r.life -= 0.02;
@@ -451,15 +472,15 @@
                 cursorCtx.fill();
             } else points.splice(i, 1);
         }
-        
+
         cursorCtx.globalCompositeOperation = 'source-over';
-        const pulseRate = mouse.hoverInteractive ? 0.012 : 0.005;
-        const basePulse = 1 + Math.sin(Date.now() * pulseRate) * (mouse.hoverInteractive ? 0.2 : 0.1);
+        const pulseRate  = mouse.hoverInteractive ? 0.012 : 0.005;
+        const basePulse  = 1 + Math.sin(Date.now() * pulseRate) * (mouse.hoverInteractive ? 0.2 : 0.1);
         const clickScale = mouse.isDown ? 0.7 : 1.0;
         const totalScale = basePulse * clickScale * (mouse.hoverInteractive ? 1.4 : 1.0);
-        cursorCtx.shadowBlur = mouse.hoverInteractive ? 15 : 10;
-        cursorCtx.shadowColor = mouse.hoverInteractive ? '#ffd700' : '#e91e63';
-        cursorCtx.fillStyle = mouse.hoverInteractive ? 'rgba(255, 215, 0, 0.9)' : 'rgba(255, 128, 171, 0.9)';
+        cursorCtx.shadowBlur   = mouse.hoverInteractive ? 15 : 10;
+        cursorCtx.shadowColor  = mouse.hoverInteractive ? '#ffd700' : '#e91e63';
+        cursorCtx.fillStyle    = mouse.hoverInteractive ? 'rgba(255, 215, 0, 0.9)' : 'rgba(255, 128, 171, 0.9)';
         drawHeartPath(cursorCtx, mouse.x, mouse.y, 8 * totalScale);
         cursorCtx.fill();
         if (mouse.hoverInteractive) {
@@ -474,10 +495,8 @@
     window.addEventListener('resize', resize);
     resize();
     animate();
-    
-    window.onload = () => {
-        type("Click to see magic...");
-    };
+
+    window.onload = () => { type("Click to see magic..."); };
 </script>
 
 </body>
